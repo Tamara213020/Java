@@ -1,0 +1,224 @@
+import java.util.*;
+import java.util.stream.Collectors;
+
+class FileNameExistsException extends Exception{
+    public FileNameExistsException(String file, String folder) {
+        super("There is already a file named " + file + " in the folder " + folder);
+    }
+}
+interface IFile{
+    String getFileName();
+    long getFileSize();
+    String getFileInfo(String tab);
+    void sortBySize();
+    long findLargestFile ();
+    String getType();
+}
+
+class File implements IFile{
+    String name;
+    long size;
+
+    public File(String name, long size) {
+        this.name = name;
+        this.size = size;
+    }
+
+    @Override
+    public String getFileName() {
+        return this.name;
+    }
+
+    @Override
+    public long getFileSize() {
+        return this.size;
+    }
+
+    @Override
+    public String getFileInfo(String tab) {
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append(tab);
+        stringBuilder.append(String.format("File name: %10s ", this.name));
+        stringBuilder.append(String.format("File size: %10d\n", this.getFileSize()));
+
+        return stringBuilder.toString();
+    }
+
+    @Override
+    public void sortBySize() {
+
+    }
+
+    @Override
+    public long findLargestFile() {
+        return 0;
+    }
+
+    @Override
+    public String getType() {
+        return "File";
+    }
+}
+
+class Folder implements IFile{
+    String name;
+    ArrayList<IFile> files;
+
+    public Folder(String name) {
+        this.name = name;
+        this.files = new ArrayList<>();
+    }
+
+    void addFile (IFile file) throws FileNameExistsException {
+        String newFileName = file.getFileName();
+        boolean flag = this.files.stream()
+                .map(IFile::getFileName)
+                .anyMatch(name -> name.equals(newFileName));
+        if (flag)
+            throw new FileNameExistsException(file.getFileName(), this.name);
+        else this.files.add(file);
+    }
+
+    @Override
+    public String getFileName() {
+        return this.name;
+    }
+
+    @Override
+    public long getFileSize() {
+        return this.files.stream()
+                .mapToLong(IFile::getFileSize)
+                .sum();
+    }
+
+    @Override
+    public String getFileInfo(String tab) {
+        StringBuilder stringBuilder = new StringBuilder();
+        stringBuilder.append(tab);
+        stringBuilder.append(String.format("Folder name: %10s ", this.name));
+        stringBuilder.append(String.format("Folder size: %10d\n", this.getFileSize()));
+
+        for (IFile file :
+                this.files) {
+            stringBuilder.append(file.getFileInfo("\t" + tab));
+        }
+
+        return stringBuilder.toString();
+    }
+
+    @Override
+    public void sortBySize() {
+        Comparator<IFile> comparator = Comparator.comparing(IFile::getFileSize);
+        files.sort(comparator);
+        files.forEach(IFile::sortBySize);
+    }
+
+    @Override
+    public long findLargestFile() {
+        long max = Integer.MIN_VALUE;
+
+        for (IFile file :
+                this.files) {
+            if (file.getType() == "File" && file.getFileSize() > max)
+                max = file.getFileSize();
+            else if (file.getType() == "Folder"){
+                long temp = file.findLargestFile();
+                if (temp > max)
+                    max = temp;
+            }
+        }
+
+        return max;
+    }
+
+    @Override
+    public String getType() {
+        return "Folder";
+    }
+}
+
+class FileSystem {
+    private Folder rootDirectory;
+
+    public FileSystem() {
+        this.rootDirectory = new Folder("root");
+    }
+
+    public void addFile(IFile file) throws FileNameExistsException {
+        rootDirectory.addFile(file);
+    }
+
+    public long findLargestFile() {
+        return rootDirectory.findLargestFile();
+    }
+
+    public void sortBySize() {
+        rootDirectory.sortBySize();
+    }
+
+    @Override
+    public String toString() {
+        return rootDirectory.getFileInfo("");
+    }
+}
+
+public class FileSystemTest {
+
+    public static Folder readFolder (Scanner sc)  {
+
+        Folder folder = new Folder(sc.nextLine());
+        int totalFiles = Integer.parseInt(sc.nextLine());
+
+        for (int i=0;i<totalFiles;i++) {
+            String line = sc.nextLine();
+
+            if (line.startsWith("0")) {
+                String fileInfo = sc.nextLine();
+                String [] parts = fileInfo.split("\\s+");
+                try {
+                    folder.addFile(new File(parts[0], Long.parseLong(parts[1])));
+                } catch (FileNameExistsException e) {
+                    System.out.println(e.getMessage());
+                }
+            }
+            else {
+                try {
+                    folder.addFile(readFolder(sc));
+                } catch (FileNameExistsException e) {
+                    System.out.println(e.getMessage());
+                }
+            }
+        }
+
+        return folder;
+    }
+
+    public static void main(String[] args)  {
+
+        //file reading from input
+
+        Scanner sc = new Scanner (System.in);
+
+        System.out.println("===READING FILES FROM INPUT===");
+        FileSystem fileSystem = new FileSystem();
+        try {
+            fileSystem.addFile(readFolder(sc));
+        } catch (FileNameExistsException e) {
+            System.out.println(e.getMessage());
+        }
+
+        System.out.println("===PRINTING FILE SYSTEM INFO===");
+        System.out.println(fileSystem.toString());
+
+        System.out.println("===PRINTING FILE SYSTEM INFO AFTER SORTING===");
+        fileSystem.sortBySize();
+        System.out.println(fileSystem.toString());
+
+        System.out.println("===PRINTING THE SIZE OF THE LARGEST FILE IN THE FILE SYSTEM===");
+        System.out.println(fileSystem.findLargestFile());
+
+
+
+
+    }
+}

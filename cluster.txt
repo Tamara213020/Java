@@ -1,0 +1,75 @@
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+
+interface Element {
+    double distance(Element element);
+    String print(Element element);
+    Long getID();
+}
+
+class Point2D implements Element{
+    private final Long id;
+    private final float x, y;
+
+    public Point2D(Long id, float x, float y) {
+        this.id = id;
+        this.x = x;
+        this.y = y;
+    }
+
+    @Override
+    public double distance(Element element) {
+        Point2D point2D = (Point2D) element;
+        return Math.sqrt(Math.pow((this.x - point2D.x), 2) + Math.pow((this.y - point2D.y), 2));
+    }
+    @Override
+    public String print(Element element) {
+        return String.format("%d -> %4.3f", id, distance(element));
+    }
+    @Override
+    public Long getID() {
+        return id;
+    }
+}
+
+class Cluster<T extends Element> {
+    private Map<Long, T> cluster;
+    private Comparator<Element> comparator
+            = (e1, e2) -> (int) -e1.distance(e2);
+
+    public Cluster() {
+        this.cluster = new HashMap<>();
+    }
+    public void addItem(T element) {
+        cluster.put(element.getID(), element);
+    }
+    public void near(long id, int top) {
+        T element = cluster.get(id);
+        AtomicInteger i = new AtomicInteger(1);
+        cluster.values().stream()
+                .sorted(Comparator.comparing(e -> e.distance(element)))
+                .skip(1).limit(top)
+                .forEach(e -> System.out.printf("%d. %s\n", i.getAndIncrement(), e.print(element)));
+    }
+}
+
+public class ClusterTest {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        Cluster<Point2D> cluster = new Cluster<>();
+        int n = scanner.nextInt();
+        scanner.nextLine();
+        for (int i = 0; i < n; ++i) {
+            String line = scanner.nextLine();
+            String[] parts = line.split(" ");
+            long id = Long.parseLong(parts[0]);
+            float x = Float.parseFloat(parts[1]);
+            float y = Float.parseFloat(parts[2]);
+            cluster.addItem(new Point2D(id, x, y));
+        }
+        int id = scanner.nextInt();
+        int top = scanner.nextInt();
+        cluster.near(id, top);
+        scanner.close();
+    }
+}

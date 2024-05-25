@@ -1,0 +1,194 @@
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.util.*;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
+
+class PayrollSystem {
+    Map<String, Double> hourlyRateByLevel = new LinkedHashMap<>();
+    Map<String, Double> ticketRateByLevel = new LinkedHashMap<>();
+    List<Employee> employees;
+
+    public PayrollSystem(Map<String, Double> hourlyRateByLevel, Map<String, Double> ticketRateByLevel) {
+        this.hourlyRateByLevel = hourlyRateByLevel;
+        this.ticketRateByLevel = ticketRateByLevel;
+        this.employees = new ArrayList<>();
+    }
+
+    public void readEmployees(InputStream is) {
+        employees = new BufferedReader(new InputStreamReader(is)).lines()
+                .map(line -> Factory.createEmployee(line, hourlyRateByLevel, ticketRateByLevel))
+                .collect(Collectors.toList());
+    }
+
+    public Map<String, Set<Employee>> printEmployeesByLevels(OutputStream os, Set<String> levels) {
+        Map<String, Set<Employee>> employeeByLevels;
+        employeeByLevels = employees.stream().collect(Collectors.groupingBy(
+                Employee::getLevel,
+                Collectors.toCollection(TreeSet::new)
+        ));
+
+        Set<String> keys = new HashSet<>(employeeByLevels.keySet());
+
+        keys.stream()
+                .filter(k -> !levels.contains(k))
+                .forEach(employeeByLevels::remove);
+
+        return employeeByLevels;
+    }
+}
+
+class Factory {
+
+    public static Employee createEmployee(String line, Map<String, Double> hourlyRateByLevel, Map<String, Double> ticketRateByLevel) {
+        String[] arr = line.split(";");
+        if (arr[0].equalsIgnoreCase("f")) {//F;72926a;level7;5;6;8;1 //id, lvl, rate, lista
+            String id = arr[1];
+            String level = arr[2];
+            double rate = ticketRateByLevel.get(level);
+            List<Integer> tickets = new ArrayList<>();
+            for (int i = 3; i < arr.length; i++) {
+                tickets.add(Integer.parseInt(arr[i]));
+            }
+
+            return new FreelanceEmployee(id, level, rate, tickets);
+        } else { //H;157f3d;level10;63.14
+            String id = arr[1];
+            String level = arr[2];
+            double rate = hourlyRateByLevel.get(level);
+            double hours = Double.parseDouble(arr[3]);
+
+            return new HourlyEmployee(id, level, rate, hours);
+        }
+    }
+}
+
+class HourlyEmployee extends Employee {
+    private double hours;
+
+    public HourlyEmployee(String id, String level, double rate, double hours) {
+        super(id, level, rate);
+        this.hours = hours;
+    }
+
+    @Override
+    double calculateSalary() {
+        if (hours > 40) {
+            double x = 0;
+            x = hours - 40;
+            return 40 * rate + x * rate * 1.5;
+        } else {
+            return hours * rate;
+        }
+    }
+
+    private double getRegular() {
+        if (this.hours < 40)
+            return this.hours;
+        else return 40;
+    }
+
+    private double getOvertime() {
+        if (this.hours < 40)
+            return 0;
+        else return this.hours - 40;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Employee ID: %s Level: %s Salary: %.2f Regular hours: %.2f Overtime hours: %.2f", this.id, this.level, this.calculateSalary(), this.getRegular(), this.getOvertime());
+    }
+}
+
+class FreelanceEmployee extends Employee {
+    private List<Integer> tickets = new ArrayList<>();
+
+    public FreelanceEmployee(String id, String level, double rate, List<Integer> tickets) {
+        super(id, level, rate);
+        this.tickets = tickets;
+    }
+
+    @Override
+    double calculateSalary() {
+        int sum = tickets.stream()
+                .mapToInt(i -> i)
+                .sum();
+
+        return sum * rate;
+    }
+
+    private int calculateTickets() {
+        return tickets.stream()
+                .mapToInt(i -> i)
+                .sum();
+    }
+
+    @Override
+    public String toString() { //Employee ID: b4ba13 Level: level6 Salary: 360.00 Tickets count: 5 Tickets points: 18↩
+        return String.format("Employee ID: %s Level: %s Salary: %.2f Tickets count: %d Tickets points: %d", this.id, this.level, this.calculateSalary(), this.tickets.size(), this.calculateTickets());
+    }
+}
+
+abstract class Employee implements Comparable<Employee> {
+    String id;
+    String level;
+    double rate;
+
+    public Employee(String id, String level, double rate) {
+        this.id = id;
+        this.level = level;
+        this.rate = rate;
+    }
+
+    abstract double calculateSalary();
+
+    public String getLevel() {
+        return level;
+    }
+
+    @Override
+    public int compareTo(Employee o) {
+        return Comparator.comparing(Employee::calculateSalary).thenComparing(Employee::getLevel).reversed().compare(this, o);
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Employee ID: %s Level: %s Salary: %.2f", id, level, calculateSalary());
+    }
+
+}
+
+public class PayrollSystemTest {
+
+    public static void main(String[] args) {
+
+        Map<String, Double> hourlyRateByLevel = new LinkedHashMap<>();
+        Map<String, Double> ticketRateByLevel = new LinkedHashMap<>();
+        for (int i = 1; i <= 10; i++) {
+            hourlyRateByLevel.put("level" + i, 10 + i * 2.2);
+            ticketRateByLevel.put("level" + i, 5 + i * 2.5);
+        }
+
+        PayrollSystem payrollSystem = new PayrollSystem(hourlyRateByLevel, ticketRateByLevel);
+
+        System.out.println("READING OF THE EMPLOYEES DATA");
+        payrollSystem.readEmployees(System.in);
+
+        System.out.println("PRINTING EMPLOYEES BY LEVEL");
+        Set<String> levels = new LinkedHashSet<>();
+        for (int i=5;i<=10;i++) {
+            levels.add("level"+i);
+        }
+        Map<String, Set<Employee>> result = payrollSystem.printEmployeesByLevels(System.out, levels);
+        result.forEach((level, employees) -> {
+            System.out.println("LEVEL: "+ level);
+            System.out.println("Employees: ");
+            employees.forEach(System.out::println);
+            System.out.println("------------");
+        });
+
+
+    }
+}

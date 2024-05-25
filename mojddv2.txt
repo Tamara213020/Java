@@ -1,0 +1,173 @@
+import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
+class AmountNotAllowedException extends Exception{
+    public AmountNotAllowedException(int sum) {
+        super(String.format("Receipt with amount %d is not allowed to be scanned", sum));
+    }
+}
+public class MojDDVTest {
+
+    public static void main(String[] args) {
+
+        MojDDV mojDDV = new MojDDV();
+
+        System.out.println("===READING RECORDS FROM INPUT STREAM===");
+        mojDDV.readRecords(System.in);
+
+        System.out.println("===PRINTING TAX RETURNS RECORDS TO OUTPUT STREAM ===");
+        mojDDV.printTaxReturns(System.out);
+
+        System.out.println("===PRINTING SUMMARY STATISTICS FOR TAX RETURNS TO OUTPUT STREAM===");
+        mojDDV.printStatistics(System.out);
+    }
+}
+
+class MojDDV {
+    List<Paper> papers;
+
+    public MojDDV() {
+        this.papers = new ArrayList<>();
+    }
+
+    void readRecords(InputStream inputStream) {
+        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
+
+        this.papers = bufferedReader.lines().map((String line) -> {
+            try {
+                return new Paper(line);
+            } catch (AmountNotAllowedException e) {
+                System.out.println(e.getMessage());
+                return null;
+            }
+        }).filter(Objects::nonNull).collect(Collectors.toList());
+
+    }
+
+    void printTaxReturns (OutputStream outputStream){
+        PrintWriter printWriter = new PrintWriter(outputStream);
+
+        this.papers.stream().forEach(paper -> printWriter.println(paper.toString()));
+
+        printWriter.flush();
+    }
+
+    void printStatistics (OutputStream outputStream){
+        double min = this.papers.stream().mapToDouble(Paper::getSumDDV).min().orElse(-1);
+        double max = this.papers.stream().mapToDouble(Paper::getSumDDV).max().orElse(-1);
+        double sum = this.papers.stream().mapToDouble(Paper::getSumDDV).sum();
+        int count = this.papers.size();
+        double average = this.papers.stream().mapToDouble(Paper::getSumDDV).average().orElse(-1);
+
+        String text = String.format(
+                "min:\t%5.3f\n" +
+                "max:\t%5.3f\n" +
+                        "sum:\t%5.3f\n" +
+                        "count:\t%-5d\n" +
+                        "avg:\t%5.3f\n", min, max, sum, count, average);
+
+        PrintWriter printWriter = new PrintWriter(outputStream);
+        printWriter.print(text);
+
+        printWriter.flush();
+    }
+}
+
+class Paper {
+    List<Item> items = new ArrayList<>();
+    String id;
+
+    public Paper(String line) throws AmountNotAllowedException { // 12334 1789 А 1238 B 1222 V 111 V
+        String[] parts = line.split("\\s+");
+        String id = parts[0];
+
+        int sum = 0;
+        for (int i = 1; i < parts.length; i += 2) {
+            sum += Integer.parseInt(parts[i]);
+        }
+
+        if (sum > 30000)
+            throw new AmountNotAllowedException(sum);
+
+        for (int i = 1; i < parts.length; i += 2) {
+            Item item = new Item(Integer.parseInt(parts[i]), parts[i + 1].charAt(0));
+            this.items.add(item);
+        }
+
+        this.id = id;
+    }
+    public long getSum(){
+        return this.items.stream().mapToInt(Item::getPrice).sum();
+    }
+
+    public double getSumDDV(){
+        return this.items.stream().mapToDouble(Item::getDDV).sum();
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%10s\t%10d\t%10.5f", this.id, this.getSum(), this.getSumDDV());
+    }
+}
+
+class Item {
+    int price;
+    Tax tax;
+
+    public Item(int price, Character letter) {
+        this.price = price;
+
+        if (letter == 'A'){
+            this.tax = Tax.valueOf("A");
+        } else if (letter == 'B'){
+            this.tax = Tax.valueOf("B");
+        } else if (letter == 'V'){
+            this.tax = Tax.valueOf("V");
+        }
+    }
+
+    public int getPrice() {
+        return price;
+    }
+
+    public Tax getTax() {
+        return tax;
+    }
+
+    public double getTaxOnPrice(){
+        return this.price * ((double) tax.getTaxValue() / 100);
+    }
+
+    public double getDDV(){
+        return this.getTaxOnPrice() * 0.15;
+    }
+}
+
+enum Tax {
+    A(0), B(1), V(3);
+    private int index;
+    private int taxValue;
+
+    Tax(int index) {
+        this.index = index;
+        switch (index) {
+            case 0 : this.taxValue = 18;
+                break;
+            case 1 : this.taxValue = 5;
+                break;
+            case 2 : this.taxValue = 0;
+                break;
+        }
+    }
+
+    public int getIndex() {
+        return index;
+    }
+
+    public int getTaxValue() {
+        return taxValue;
+    }
+}
