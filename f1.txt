@@ -1,0 +1,86 @@
+import java.io.*;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+
+public class F1Test {
+    public static void main(String[] args) {
+        F1Race f1Race = new F1Race();
+        f1Race.readResults(System.in);
+        f1Race.printSorted(System.out);
+    }
+}
+
+class F1Race {
+    Map<String, Racer> racers;
+
+    public F1Race() {
+        this.racers = new TreeMap<>();
+    }
+
+    void readResults(InputStream inputStream){
+        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
+        bufferedReader.lines().forEach(this::createRacer);
+    }
+
+    void createRacer(String line){
+        String[] parts = line.split(" ");
+        List<String> times = Arrays.stream(parts).skip(1).collect(Collectors.toList());
+        Racer racer = new Racer(parts[0], times);
+
+        this.racers.put(parts[0], racer);
+    }
+
+    void printSorted(OutputStream outputStream){
+        PrintWriter printWriter = new PrintWriter(outputStream);
+
+        AtomicInteger i = new AtomicInteger(1);
+        this.racers.values().stream().sorted(Comparator.comparing(Racer::getBestTime)).forEach(driver -> printWriter.println(String.format("%d. %s", i.getAndIncrement(), driver)));
+
+        printWriter.flush();
+    }
+}
+
+class Racer{
+    String name;
+    List<String> times = new ArrayList<>();
+    String bestTimeString = "";
+
+    public Racer(String name, List<String> times) {
+        this.name = name;
+        this.times = times;
+    }
+
+    public Long getBestTime(){
+        long minTime = Long.MAX_VALUE;
+        String target = "";
+        for (String time : this.times){
+            String[] parts = time.split(":");
+            long sum = 0;
+            sum += Long.parseLong(parts[0]) * 60 * 1000;
+            sum += Long.parseLong(parts[1]) * 1000;
+            sum += Long.parseLong(parts[2]);
+
+            if (minTime > sum) {
+                minTime = sum;
+                target = time;
+            }
+        }
+
+        this.bestTimeString = target;
+        return minTime;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public String getBestTimeString() {
+        return bestTimeString;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%-10s%10s", this.name, this.bestTimeString);
+    }
+}

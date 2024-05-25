@@ -1,0 +1,72 @@
+import java.util.*;
+import java.util.stream.Collectors;
+
+public class NamesTest {
+    public static void main(String[] args) {
+        Scanner scanner = new Scanner(System.in);
+        int n = scanner.nextInt();
+        scanner.nextLine();
+        Names names = new Names();
+        for (int i = 0; i < n; ++i) {
+            String name = scanner.nextLine();
+            names.addName(name);
+        }
+        n = scanner.nextInt();
+        System.out.printf("===== PRINT NAMES APPEARING AT LEAST %d TIMES =====\n", n);
+        names.printN(n);
+        System.out.println("===== FIND NAME =====");
+        int len = scanner.nextInt();
+        int index = scanner.nextInt();
+        System.out.println(names.findName(len, index));
+        scanner.close();
+
+    }
+}
+
+class Names {
+    Map<String, Integer> nameCounterRatio;
+
+    public Names() {
+        this.nameCounterRatio = new TreeMap<>();
+    }
+
+    public void addName(String name){
+        if (this.nameCounterRatio.containsKey(name)){
+            int counter = this.nameCounterRatio.get(name);
+            this.nameCounterRatio.put(name, counter + 1);
+        } else this.nameCounterRatio.putIfAbsent(name, 1);
+    }
+
+    public void printN(int n){
+        for (Map.Entry<String, Integer> word : nameCounterRatio.entrySet()){
+            if(word.getValue() >= n){
+                System.out.printf("%s (%d) %d\n", word.getKey(), word.getValue(), calculateUniqueLetters(word.getKey()));
+            }
+        }
+    }
+
+    public int calculateUniqueLetters(String word){
+        Map<Character, Integer> uniqueLetters = new HashMap<>();
+        for (int i = 0; i < word.length(); i++){
+            uniqueLetters.put(word.toLowerCase().charAt(i), 0);
+        }
+
+        return (int) uniqueLetters.keySet().stream().count();
+    }
+
+    public String findName(int len, int x){
+        List<String> names = this.nameCounterRatio.keySet().stream().filter(name -> name.length() < len).collect(Collectors.toList());
+
+        int mapLength = names.size();
+        int index;
+        if (mapLength < x) {
+            if (x % mapLength == 0)
+                index = x % mapLength;
+            else index = x % mapLength;
+            return names.get(index);
+        }
+        else {
+            return names.get(x);
+        }
+    }
+}

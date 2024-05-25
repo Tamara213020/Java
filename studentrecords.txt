@@ -1,0 +1,197 @@
+import java.io.*;
+import java.util.*;
+import java.util.stream.Collectors;
+
+/**
+ * January 2016 Exam problem 1
+ */
+public class StudentRecordsTest {
+    public static void main(String[] args) {
+        System.out.println("=== READING RECORDS ===");
+        StudentRecords studentRecords = new StudentRecords();
+        int total = studentRecords.readRecords(System.in);
+        System.out.printf("Total records: %d\n", total);
+        System.out.println("=== WRITING TABLE ===");
+        studentRecords.writeTable(System.out);
+        System.out.println("=== WRITING DISTRIBUTION ===");
+        studentRecords.writeDistribution(System.out);
+    }
+}
+
+// your code here
+class StudentRecords {
+    private Map<String, Program> studentsOnProgram; //by program
+
+    public StudentRecords() {
+        this.studentsOnProgram = new HashMap<>();
+    }
+
+    public int readRecords(InputStream inputStream) {
+        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
+        List<String> lines = bufferedReader.lines().collect(Collectors.toList());
+        int n = lines.size();
+
+        lines.forEach(line -> {
+            Student student = createStudent(line);
+
+            String program = student.getProgram();
+            this.studentsOnProgram.putIfAbsent(program, new Program(student.getProgram()));
+            this.studentsOnProgram.get(program).addStudent(student);
+            this.studentsOnProgram.get(program).putGradeInMap(student.getGrades());
+        });
+
+        return n;
+    }
+
+
+    public Student createStudent(String line) {
+        String[] parts = line.split(" ");
+        String index = parts[0];
+        String program = parts[1];
+        List<Integer> grades = new ArrayList<>();
+
+        for (int i = 2; i < parts.length; i++) {
+            grades.add(Integer.parseInt(parts[i]));
+        }
+
+        return new Student(index, program, grades);
+    }
+
+    public void writeTable(OutputStream outputStream) {
+        PrintWriter printWriter = new PrintWriter(outputStream);
+
+        StringBuilder stringBuilder = new StringBuilder();
+
+        this.studentsOnProgram.values().forEach(program -> {
+            stringBuilder.append(program.getName()).append("\n");
+            stringBuilder.append(printProgram(program));
+        });
+
+        printWriter.print(stringBuilder.toString());
+        printWriter.flush();
+    }
+
+    private String printProgram(Program program) {
+        StringBuilder stringBuilder = new StringBuilder();
+
+        program.students.stream()
+                .sorted(Comparator.comparing(Student::getAverage).reversed().thenComparing(Student::getIndex))
+                .forEach(student -> stringBuilder.append(student.toString()).append("\n"));
+
+        return stringBuilder.toString();
+    }
+
+    public void writeDistribution(OutputStream outputStream) {
+        PrintWriter printWriter = new PrintWriter(outputStream);
+
+        StringBuilder stringBuilder = new StringBuilder();
+
+        this.studentsOnProgram.values().stream()
+                .sorted(Comparator.comparing(Program::get10).reversed())
+                .map(Program::toString)
+                .forEach(stringBuilder::append);
+
+        printWriter.print(stringBuilder.toString());
+        printWriter.flush();
+    }
+}
+
+class Program {
+    String name;
+    List<Student> students;
+    Map<Integer, Integer> gradeCounter;
+
+    public Program(String name) {
+        this.students = new ArrayList<>();
+        this.name = name;
+        this.gradeCounter = new HashMap<>();
+    }
+
+    public void addStudent(Student student) {
+        this.students.add(student);
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void putGradeInMap(List<Integer> grades) {
+        for (Integer grade : grades) {
+
+            if (this.gradeCounter.containsKey(grade)) {
+                int counter = this.gradeCounter.get(grade);
+                counter += 1;
+                this.gradeCounter.put(grade, counter);
+            } else {
+                this.gradeCounter.put(grade, 1);
+            }
+        }
+    }
+
+    public int get10(){
+        return this.gradeCounter.get(10);
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder stringBuilder = new StringBuilder();
+
+        stringBuilder.append(name).append("\n");
+        for (int i = 6; i <= 10; i++) {
+            int count = this.gradeCounter.get(i); //162
+            if (count % 10 == 0) {
+                count = count / 10;
+            } else {
+                count = count / 10 + 1;
+            }
+
+            StringBuilder stars = new StringBuilder();
+            for (int j = 0; j < count; j++) {
+                stars.append('*');
+            }
+
+            stringBuilder.append(String.format("%2d | %s(%d)\n", i, stars.toString(), this.gradeCounter.get(i)));
+        }
+
+        return stringBuilder.toString();
+    }
+}
+
+class Student {
+    private String index;
+    private String program;
+    private List<Integer> grades;
+
+    public Student(String index, String program, List<Integer> grades) {
+        this.index = index;
+        this.program = program;
+        this.grades = grades;
+    }
+
+    public float getAverage() {
+        int sum = 0;
+
+        for (Integer integer : this.grades) {
+            sum += integer;
+        }
+
+        return (float) sum / this.grades.size();
+    }
+
+    public String getIndex() {
+        return index;
+    }
+
+    public String getProgram() {
+        return program;
+    }
+
+    public List<Integer> getGrades() {
+        return grades;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%s %.2f", this.index, this.getAverage());
+    }
+}
