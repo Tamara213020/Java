@@ -1,0 +1,70 @@
+import java.io.*;
+import java.util.*;
+import java.util.stream.Collectors;
+
+class TermFrequency {
+    Map<String, Integer> wordMap;
+    int count = 0;
+
+    TermFrequency(InputStream inputStream, String[] stopWords) {
+        this.wordMap = new TreeMap<>();
+        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
+        bufferedReader.lines().forEach(line -> run(line, stopWords));
+    }
+
+    private void run(String line, String[] stopWords) {
+        if (line.length() > 0) {
+            String[] arr = line.split(" ");
+
+            String notAllowed = Arrays.stream(stopWords).collect(Collectors.joining(""));
+            for (int i = 0; i < arr.length; i++) {
+                String cleaned = cleanString(arr[i]);
+
+                if (cleaned.equals(""))
+                    continue;
+
+
+                if (notAllowed.contains(cleaned))
+                    continue;
+
+                if (this.wordMap.containsKey(cleaned)) {
+                    int counter = this.wordMap.get(cleaned);
+                    this.wordMap.put(cleaned, counter + 1);
+                    this.count++;
+                } else {
+                    this.wordMap.put(cleaned, 1);
+                    this.count++;
+                }
+            }
+        }
+    }
+
+    private String cleanString(String input) {
+        return input.toLowerCase().replace(",", "").replace(".", "").trim();
+    }
+
+    public int countTotal() {
+        return this.count;
+    }
+
+    public int countDistinct() {
+        return this.wordMap.keySet().size();
+    }
+
+    public List<String> mostOften(int i) {
+        return this.wordMap.keySet().stream().sorted(Comparator.comparing(key -> this.wordMap.get(key)).reversed()).limit(i).collect(Collectors.toList());
+    }
+}
+
+public class TermFrequencyTest {
+    public static void main(String[] args) throws FileNotFoundException {
+        String[] stop = new String[]{"во", "и", "се", "за", "ќе", "да", "од",
+                "ги", "е", "со", "не", "тоа", "кои", "до", "го", "или", "дека",
+                "што", "на", "а", "но", "кој", "ја"};
+        TermFrequency tf = new TermFrequency(System.in,
+                stop);
+        System.out.println(tf.countTotal());
+        System.out.println(tf.countDistinct());
+        System.out.println(tf.mostOften(10));
+    }
+}

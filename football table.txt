@@ -1,0 +1,130 @@
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+/**
+ * Partial exam II 2016/2017
+ */
+public class FootballTableTest {
+    public static void main(String[] args) throws IOException {
+        FootballTable table = new FootballTable();
+        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+        reader.lines()
+                .map(line -> line.split(";"))
+                .forEach(parts -> table.addGame(parts[0], parts[1],
+                        Integer.parseInt(parts[2]),
+                        Integer.parseInt(parts[3])));
+        reader.close();
+        System.out.println("=== TABLE ===");
+        System.out.printf("%-19s%5s%5s%5s%5s%5s\n", "Team", "P", "W", "D", "L", "PTS");
+        table.printTable();
+    }
+}
+
+// Your code here
+class Team {
+    String name;
+    int wins;
+    int loses;
+    int draws;
+    int goalsGiven;
+    int goalsTaken;
+
+    public Team(String name) {
+        this.name = name;
+        this.wins = 0;
+        this.loses = 0;
+        this.draws = 0;
+        this.goalsGiven = 0;
+        this.goalsTaken = 0;
+    }
+
+    public void updateWins() {
+        this.wins += 1;
+    }
+
+    public void updateLoses() {
+        this.loses += 1;
+    }
+
+    public void updateDraws() {
+        this.draws += 1;
+    }
+
+    public void updateGoalsGiven(int goalsGiven) {
+        this.goalsGiven += goalsGiven;
+    }
+
+    public void updateGoalsTaken(int goalsTaken) {
+        this.goalsTaken += goalsTaken;
+    }
+
+    public int calculateTablePoints() {
+        return this.wins * 3 + this.draws;
+    }
+
+    public int goalDifference() {
+        return this.goalsGiven - this.goalsTaken;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public int count(){
+        return this.wins + this.draws + this.loses;
+    }
+
+    @Override
+    public String toString() {
+
+        return String.format("%-15s%5d%5d%5d%5d%5d", this.name, count(), this.wins, this.draws, this.loses, this.calculateTablePoints());
+    }
+}
+
+class FootballTable {
+    Map<String, Team> teamTable;
+
+    public FootballTable() {
+        this.teamTable = new HashMap<>();
+    }
+
+    public void addGame(String homeTeam, String awayTeam, int homeGoals, int awayGoals){
+        this.teamTable.putIfAbsent(homeTeam, new Team(homeTeam));
+        Team home = this.teamTable.get(homeTeam);
+
+        this.teamTable.putIfAbsent(awayTeam, new Team(awayTeam));
+        Team away = this.teamTable.get(awayTeam);
+
+        home.updateGoalsGiven(homeGoals);
+        home.updateGoalsTaken(awayGoals);
+        away.updateGoalsGiven(awayGoals);
+        away.updateGoalsTaken(homeGoals);
+        if (homeGoals > awayGoals){
+            home.updateWins();
+            away.updateLoses();
+        } else if (homeGoals < awayGoals){
+            home.updateLoses();
+            away.updateWins();
+        } else {
+            home.updateDraws();
+            away.updateDraws();
+        }
+
+        this.teamTable.put(home.getName(), home);
+        this.teamTable.put(away.getName(), away);
+    }
+
+    public void printTable(){
+        AtomicInteger i = new AtomicInteger(1);
+        this.teamTable.values().stream().sorted(Comparator.comparing(Team::calculateTablePoints)
+                .thenComparing(Team::goalDifference).reversed()
+                .thenComparing(Team::getName)).forEach(team -> {
+            System.out.println(String.format("%2d. %s", i.getAndIncrement(), team.toString()));
+        });
+    }
+}

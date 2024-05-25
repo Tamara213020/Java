@@ -1,0 +1,209 @@
+import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+class InvalidOperationException extends Exception {
+    public InvalidOperationException(String message) {
+        super(message);
+    }
+}
+
+abstract class Product {
+    String productID;
+    String productName;
+    Double productPrice;
+    double quantity;
+
+    public Product(String productID, String productName, String productPrice, double quantity) {
+        this.productID = productID;
+        this.productName = productName;
+        this.productPrice = Double.parseDouble(productPrice);
+        this.quantity = quantity;
+    }
+
+    public double getDiscountPrice() {
+        return this.productPrice * 10 / 100;
+    }
+
+    public abstract double priceQuantityProduct();
+
+    public abstract double discountSum();
+
+    public String getProductID() {
+        return productID;
+    }
+
+    public String print1() {
+        return String.format("%s - %.2f\n", this.productID, this.priceQuantityProduct());
+    }
+
+    public String print2() {
+        return String.format("%s - %.2f\n", this.productID, this.discountSum());
+    }
+}
+
+class ProductPerUnit extends Product {
+
+    public ProductPerUnit(String productID, String productName, String productPrice, double quantity) {
+        super(productID, productName, productPrice, quantity);
+    }
+
+    @Override
+    public double priceQuantityProduct() {
+        return this.productPrice * this.quantity;
+    }
+
+    @Override
+    public double discountSum() {
+        return this.quantity * this.getDiscountPrice();
+    }
+}
+
+class ProductPerGram extends Product {
+
+    public ProductPerGram(String productID, String productName, String productPrice, double quantity) {
+        super(productID, productName, productPrice, quantity);
+    }
+
+    public double getKG() {
+        return quantity / 1000;
+    }
+
+    @Override
+    public double priceQuantityProduct() {
+        return this.getKG() * this.productPrice;
+    }
+
+    @Override
+    public double discountSum() {
+        return this.getKG() * getDiscountPrice();
+    }
+}
+
+class ShoppingCart {
+    List<ProductPerGram> productPerGrams;
+    List<ProductPerUnit> productPerUnits;
+
+    public ShoppingCart() {
+        this.productPerGrams = new ArrayList<>();
+        this.productPerUnits = new ArrayList<>();
+    }
+
+    void addItem(String itemData) throws InvalidOperationException {
+        String[] arr = itemData.split(";");
+        String type = arr[0];
+        String productID = arr[1];
+        String productName = arr[2];
+        String productPrice = arr[3];
+        double quantity = Double.parseDouble(arr[4]);
+
+        if (quantity <= 0)
+            throw new InvalidOperationException(String.format("The quantity of the product with id %s can not be 0.", productID));
+
+        if (type.equals("WS"))
+            this.productPerUnits.add(new ProductPerUnit(productID, productName, productPrice, quantity));
+        else this.productPerGrams.add(new ProductPerGram(productID, productName, productPrice, quantity));
+    }
+
+    void printShoppingCart(OutputStream os) {
+        PrintWriter printWriter = new PrintWriter(os);
+
+        List<Product> cart = new ArrayList<>();
+        cart.addAll(this.productPerGrams);
+        cart.addAll(this.productPerUnits);
+
+        cart = cart.stream().sorted(Comparator.comparing(Product::priceQuantityProduct).reversed()).collect(Collectors.toList());
+
+        StringBuilder stringBuilder = new StringBuilder();
+        for (Product product : cart) {
+            stringBuilder.append(product.print1());
+        }
+
+        printWriter.print(stringBuilder);
+        printWriter.flush();
+    }
+
+    void blackFridayOffer(List<Integer> discountItems, OutputStream os) throws InvalidOperationException {
+        List<Product> cart = new ArrayList<>();
+        cart.addAll(this.productPerGrams);
+        cart.addAll(this.productPerUnits);
+
+        Set<Product> discountCart = new LinkedHashSet<>();
+        Set<Integer> discountItemsSet = new LinkedHashSet<>(discountItems);
+        List<Integer> productIds = cart.stream().map(product -> Integer.parseInt(product.getProductID())).collect(Collectors.toList());
+
+        boolean flag = false;
+        for (Integer integer : discountItems) {
+            if (productIds.contains(integer)){
+                flag = true;
+                break;
+            }
+        }
+
+        if (!flag) {
+            throw new InvalidOperationException("There are no products with discount.");
+        }
+
+        if (!flag) {
+            return;
+        }
+
+        for (Integer integer : discountItemsSet) {
+            for (int i = 0; i < cart.size(); i++) {
+                if (integer == Integer.parseInt(cart.get(i).getProductID()))
+                    discountCart.add(cart.get(i));
+            }
+        }
+
+        if (discountCart.isEmpty())
+            throw new InvalidOperationException("There are no products with discount.");
+        else {
+            StringBuilder stringBuilder = new StringBuilder();
+
+            discountCart.stream().forEach(product -> stringBuilder.append(product.print2()));
+
+            PrintWriter printWriter = new PrintWriter(os);
+
+            printWriter.print(stringBuilder);
+            printWriter.flush();
+        }
+    }
+}
+
+public class ShoppingTest {
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        ShoppingCart cart = new ShoppingCart();
+
+        int items = Integer.parseInt(sc.nextLine());
+        for (int i = 0; i < items; i++) {
+            try {
+                cart.addItem(sc.nextLine());
+            } catch (InvalidOperationException e) {
+                System.out.println(e.getMessage());
+            }
+        }
+
+        List<Integer> discountItems = new ArrayList<>();
+        int discountItemsCount = Integer.parseInt(sc.nextLine());
+        for (int i = 0; i < discountItemsCount; i++) {
+            discountItems.add(Integer.parseInt(sc.nextLine()));
+        }
+
+        int testCase = Integer.parseInt(sc.nextLine());
+        if (testCase == 1) {
+            cart.printShoppingCart(System.out);
+        } else if (testCase == 2) {
+            try {
+                cart.blackFridayOffer(discountItems, System.out);
+            } catch (InvalidOperationException e) {
+                System.out.println(e.getMessage());
+            }
+        } else {
+            System.out.println("Invalid test case");
+        }
+    }
+}

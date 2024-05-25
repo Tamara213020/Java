@@ -1,0 +1,192 @@
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.stream.Collectors;
+
+class DurationConverter {
+    public static String convert(long duration) {
+        long minutes = duration / 60;
+        duration %= 60;
+        return String.format("%02d:%02d", minutes, duration);
+    }
+}
+
+
+class Call{
+    private String id;
+    private String dialer;
+    private String receiver;
+    private long timestamp;
+    private String state;
+    private long start = 0;
+    private long end = 0;
+    private long lastTimestamp = 0;
+    private float totalTimeDecimals = 0;
+
+    public Call(String id, String dialer, String receiver, long timestamp) {
+        this.id = id;
+        this.dialer = dialer;
+        this.receiver = receiver;
+        this.timestamp = timestamp;
+        this.state = "";
+    }
+
+    public void setState(String state) {
+        this.state = state;
+    }
+
+    public void setStart(long start) {
+        this.start = start;
+    }
+
+    public void setEnd(long end) {
+        this.end = end;
+    }
+
+    public void setLastTimestamp(long lastTimestamp) {
+        this.lastTimestamp = lastTimestamp;
+    }
+
+    public String getDialer() {
+        return dialer;
+    }
+
+    public String getReceiver() {
+        return receiver;
+    }
+
+    public long getTimestamp() {
+        return timestamp;
+    }
+
+    public long getLastTimestamp() {
+        return lastTimestamp;
+    }
+
+    public float calculateTime(long toTimestamp){
+        float first = (float) toTimestamp / 60;
+        float second = (float) this.lastTimestamp / 60;
+
+        float result = first - second;
+        this.totalTimeDecimals += result;
+        return result;
+    }
+
+    public String convertTime(){
+        if (this.start == 0)
+            return "00:00";
+        int minutes = (int) this.totalTimeDecimals;
+        int seconds = Math.round (((this.totalTimeDecimals - minutes) * 60 / 100) * 100);
+
+        return String.format("%02d:%d", minutes, seconds);
+    }
+
+    public void printCall(String number){
+        if (start == 0){
+            System.out.println(String.format("%s %s %d %s %s", number.equals(this.receiver) ? "R" : "D", number.equals(this.receiver) ?  this.dialer : this.receiver, this.end, "MISSED CALL", this.convertTime()));
+        } else
+            System.out.println(String.format("%s %s %d %d %s", number.equals(this.receiver) ? "R" : "D", number.equals(this.receiver) ?  this.dialer : this.receiver, this.start, this.end, this.convertTime()));
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%s <-> %s : %s", this.dialer, this.receiver, this.convertTime());
+    }
+}
+
+class TelcoApp{
+    Map<String, Call> states;
+
+    public TelcoApp() {
+        this.states = new HashMap<>();
+    }
+
+    void addCall (String uuid, String dialer, String receiver, long timestamp){
+        this.states.putIfAbsent(uuid, new Call(uuid, dialer, receiver, timestamp));
+    }
+
+    void updateCall (String uuid, long timestamp, String action){
+        Call call = this.states.get(uuid);
+
+        switch (action){
+            case "ANSWER": {
+                call.setState("ANSWER");
+                call.setStart(timestamp);
+                call.setLastTimestamp(timestamp);
+                break;
+            }
+            case "END": {
+                call.setState("END");
+                call.setEnd(timestamp);
+                call.calculateTime(timestamp);
+                break;
+            }
+            case "HOLD":
+                call.setState("HOLD");
+                call.setStart(timestamp);
+                call.calculateTime(timestamp);
+                break;
+            case "RESUME":
+                call.setState("RESUME");
+                call.setLastTimestamp(timestamp);
+                break;
+        }
+
+        this.states.put(uuid, call);
+    }
+
+    void printChronologicalReport(String phoneNumber){
+        List<Call> allCalls = this.states.values().stream()
+                .filter(call -> call.getDialer().equals(phoneNumber) || call.getReceiver().equals(phoneNumber))
+                .collect(Collectors.toList());
+
+        allCalls.stream().sorted(Comparator.comparing(Call::getTimestamp)).forEach(number -> number.printCall(phoneNumber));
+    }
+
+    void printReportByDuration(String phoneNumber){
+        List<Call> allCalls = this.states.values().stream()
+                .filter(call -> call.getDialer().equals(phoneNumber) || call.getReceiver().equals(phoneNumber))
+                .collect(Collectors.toList());
+
+        allCalls.stream().sorted(Comparator.comparing(Call::convertTime).reversed()).forEach(number -> number.printCall(phoneNumber));
+    }
+
+    public void printCallsDuration() {
+        this.states.values().stream().sorted(Comparator.comparing(Call::convertTime).reversed()).forEach(System.out::println);
+    }
+}
+public class TelcoTest2 {
+    public static void main(String[] args) {
+        TelcoApp app = new TelcoApp();
+
+        Scanner sc = new Scanner(System.in);
+
+        while (sc.hasNextLine()) {
+            String line = sc.nextLine();
+            String[] parts = line.split("\\s+");
+            String command = parts[0];
+
+            if (command.equals("addCall")) {
+                String uuid = parts[1];
+                String dialer = parts[2];
+                String receiver = parts[3];
+                long timestamp = Long.parseLong(parts[4]);
+                app.addCall(uuid, dialer, receiver, timestamp);
+            } else if (command.equals("updateCall")) {
+                String uuid = parts[1];
+                long timestamp = Long.parseLong(parts[2]);
+                String action = parts[3];
+                app.updateCall(uuid, timestamp, action);
+            } else if (command.equals("printChronologicalReport")) {
+                String phoneNumber = parts[1];
+                app.printChronologicalReport(phoneNumber);
+            } else if (command.equals("printReportByDuration")) {
+                String phoneNumber = parts[1];
+                app.printReportByDuration(phoneNumber);
+            } else {
+                app.printCallsDuration();
+            }
+        }
+
+    }
+}
