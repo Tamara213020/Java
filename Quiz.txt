@@ -1,0 +1,164 @@
+import java.io.BufferedReader;
+import java.io.OutputStream;
+import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Scanner;
+
+public class QuizTest {
+    public static void main(String[] args) {
+
+        Scanner sc = new Scanner(System.in);
+
+        Quiz quiz = new Quiz();
+
+        int questions = Integer.parseInt(sc.nextLine());
+
+        for (int i = 0; i < questions; i++) {
+            try {
+                quiz.addQuestion(sc.nextLine());
+            } catch (InvalidOperationException e) {
+                System.out.println(e.getMessage());
+            }
+        }
+
+        List<String> answers = new ArrayList<>();
+
+        int answersCount = Integer.parseInt(sc.nextLine());
+
+        for (int i = 0; i < answersCount; i++) {
+            answers.add(sc.nextLine());
+        }
+
+        int testCase = Integer.parseInt(sc.nextLine());
+
+        if (testCase == 1) {
+            quiz.printQuiz(System.out);
+        } else if (testCase == 2) {
+            try {
+                quiz.answerQuiz(answers, System.out);
+            } catch (InvalidOperationException e) {
+                System.out.println(e.getMessage());
+            }
+        } else {
+            System.out.println("Invalid test case");
+        }
+    }
+}
+
+class Quiz {
+    List<Question> questions;
+
+    public Quiz() {
+        this.questions = new ArrayList<>();
+    }
+
+    void addQuestion(String questionData) throws InvalidOperationException {
+        String[] arr = questionData.split(";");
+        String type = arr[0];
+        String text = arr[1];
+        String points = arr[2];
+        String answer = arr[3];
+
+        if (type.equals("MC")) {
+            String correctAnswer = "ABCDE";
+            if (!correctAnswer.contains(answer))
+                throw new InvalidOperationException(String.format("%s is not allowed option for this question", answer));
+
+            this.questions.add(new MCQuestion(text, answer, Double.parseDouble(points)));
+        } else {
+            this.questions.add(new TFQuestion(text, answer, Double.parseDouble(points)));
+        }
+    }
+
+    void printQuiz(OutputStream os) { //br na poeni max -> min
+        PrintWriter printWriter = new PrintWriter(os);
+
+        this.questions.stream().sorted(Comparator.comparing(Question::getPoints).reversed()).forEach(printWriter::println);
+
+        printWriter.flush();
+    }
+
+    void answerQuiz(List<String> answers, OutputStream os) throws InvalidOperationException {
+        if (this.questions.size() != answers.size())
+            throw new InvalidOperationException("Answers and questions must be of same length!");
+
+        double sumPoints = 0;
+        String x = "truefalse";
+        List<Double> listPoints = new ArrayList<>();
+        for (int i = 0; i < answers.size(); i++) {
+            if (this.questions.get(i).answer.equals(answers.get(i))) {
+                sumPoints += this.questions.get(i).getPoints();
+                listPoints.add(this.questions.get(i).getPoints());
+            } else {
+                if (!(x.contains(answers.get(i)))) {
+                    sumPoints -= this.questions.get(i).getWrongAnswerPoints();
+                    listPoints.add(this.questions.get(i).getWrongAnswerPoints() * -1);
+                } else {
+                    listPoints.add(0.0);
+                }
+            }
+        }
+
+        for (int i = 0; i < listPoints.size(); i++) {
+            System.out.println(String.format("%d. %.2f", i + 1, listPoints.get(i)));
+        }
+
+        System.out.println(String.format("Total points: %.2f", sumPoints));
+    }
+}
+
+abstract class Question {
+    String text;
+    String answer;
+    double points;
+
+    public Question(String text, String answer, double points) {
+        this.text = text;
+        this.answer = answer;
+        this.points = points;
+    }
+
+    public String getText() {
+        return text;
+    }
+
+    public double getPoints() {
+        return points;
+    }
+
+    public double getWrongAnswerPoints() {
+        return this.points * 20 / 100;
+    }
+}
+
+class TFQuestion extends Question {//true false
+
+    public TFQuestion(String text, String answer, double points) {
+        super(text, answer, points);
+    }
+
+    @Override
+    public String toString() {
+        return String.format("True/False Question: %s Points: %d Answer: %s", this.text, (int) this.points, this.answer);
+    }
+}
+
+class MCQuestion extends Question {//multiple choice
+
+    public MCQuestion(String text, String answer, double points) {
+        super(text, answer, points);
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Multiple Choice Question: %s Points %d Answer: %s", this.text, (int) this.points, this.answer);
+    }
+}
+
+class InvalidOperationException extends Exception {
+    public InvalidOperationException(String message) {
+        super(message);
+    }
+}

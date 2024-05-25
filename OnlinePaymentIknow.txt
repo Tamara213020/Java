@@ -1,0 +1,138 @@
+import java.io.*;
+import java.util.*;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+
+public class OnlinePaymentsTest {
+    public static void main(String[] args) {
+        OnlinePayments onlinePayments = new OnlinePayments();
+
+        onlinePayments.readItems(System.in);
+
+        IntStream.range(151020, 151025).mapToObj(String::valueOf).forEach(id -> {
+            try {
+                onlinePayments.printStudentReport(id, System.out);
+            } catch (StudentNotFound e) {
+                System.out.println(e.getMessage());
+            }
+        });
+    }
+}
+
+class OnlinePayments {
+    Map<String, Student> students;
+
+    public OnlinePayments() {
+        this.students = new HashMap<>();
+    }
+
+    void readItems(InputStream is) {
+        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(is));
+        bufferedReader.lines()
+                .map(Product::new)
+                .forEach(product -> {
+                    this.students.putIfAbsent(product.getStudentId(), new Student(product.studentId));
+                    this.students.get(product.studentId).products.add(product);
+                });
+    }
+
+    public void printSortedItems(List<Product> list){
+        List<Product> sorted = list.stream()
+                .sorted(Comparator.comparing(Product::getPrice).reversed())
+                .collect(Collectors.toList());
+
+        for (int i = 0; i < sorted.size(); i++){
+            String format = String.format("%d. %s", i + 1, sorted.get(i).toString());
+            System.out.println(format);
+        }
+    }
+
+    void printStudentReport(String index, OutputStream os) throws StudentNotFound {
+        PrintWriter printWriter = new PrintWriter(os);
+        Student student = students.get(index);
+
+//        if (student == null)
+//            printWriter.println(String.format("Student %s not found!", index));
+//        else printWriter.println(student);
+
+        if (student == null)
+            throw new StudentNotFound(String.format("Student %s not found!", index));
+
+        System.out.println(student);
+        System.out.println("Items:");
+        printSortedItems(student.products);
+        printWriter.flush();
+    }
+}
+
+class StudentNotFound extends Exception{
+    public StudentNotFound(String message) {
+        super(message);
+    }
+}
+class Student {
+    String id;
+    List<Product> products;
+
+    public Student(String id) {
+        this.id = id;
+        this.products = new ArrayList<>();
+    }
+
+    public int net() {
+        int sum = 0;
+        for (Product product : products) {
+            sum += product.getPrice();
+        }
+
+        return sum;
+    }
+
+    public int commission() {
+        int x = (int) Math.round(net() * 1.14 / 100);
+        if (x < 3)
+            x = 3;
+        else if (x > 300)
+            x = 300;
+        
+        return x;
+    }
+
+    public int sum() {
+        return Math.round(commission() + net());
+    }
+
+    @Override
+    public String toString() {
+        return String.format("Student: %s Net: %d Fee: %d Total: %d", this.id, this.net(), this.commission(), this.sum());
+    }
+}
+
+class Product {
+    final String name;
+    final int price;
+    final String studentId;
+    public Product(String line) {
+        String[] arr = line.split(";");
+        this.studentId = arr[0];
+        this.name = arr[1];
+        this.price = Integer.parseInt(arr[2]);
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public int getPrice() {
+        return price;
+    }
+
+    public String getStudentId() {
+        return studentId;
+    }
+
+    @Override
+    public String toString() {
+        return String.format("%s %d", this.name, this.price);
+    }
+}
